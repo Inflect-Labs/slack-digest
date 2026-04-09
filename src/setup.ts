@@ -1,8 +1,59 @@
-import { input } from "@inquirer/prompts";
+import { input, confirm } from "@inquirer/prompts";
 import { writeFileSync, existsSync, readFileSync } from "fs";
 import { ENV_PATH, CONFIG_PATH } from "./paths.js";
 import { SlackConfig } from "./types.js";
 import { listJoinedChannels } from "./slack.js";
+
+async function promptToken(): Promise<string> {
+  console.log("  ┌─ Slack Bot Token needed ───────────────────────────────────┐");
+  console.log("  │");
+  console.log("  │  1. Go to https://api.slack.com/apps and click");
+  console.log("  │     \"Create New App\" → \"From scratch\"");
+  console.log("  │");
+  console.log("  │  2. Under \"OAuth & Permissions\" → \"Bot Token Scopes\",");
+  console.log("  │     add these scopes:");
+  console.log("  │     • channels:history   channels:read");
+  console.log("  │     • groups:history     groups:read");
+  console.log("  │     • users:read");
+  console.log("  │");
+  console.log("  │  3. Click \"Install to Workspace\" at the top of the page.");
+  console.log("  │");
+  console.log("  │  4. Copy the \"Bot User OAuth Token\" (starts with xoxb-)");
+  console.log("  │     and paste it below.");
+  console.log("  │");
+  console.log("  └────────────────────────────────────────────────────────────┘\n");
+
+  const token = await input({
+    message: "  Slack Bot Token:",
+    validate: (v) => v.trim().length > 0 || "Token cannot be empty",
+  });
+
+  if (!token.trim().startsWith("xoxb-") && !token.trim().startsWith("xoxp-")) {
+    console.error("\n  Error: token should start with xoxb- (bot) or xoxp- (user).");
+    process.exit(1);
+  }
+
+  process.stdout.write("  Validating...");
+  try {
+    const res = await fetch("https://slack.com/api/auth.test", {
+      headers: { Authorization: `Bearer ${token.trim()}` },
+    });
+    const data = (await res.json()) as { ok: boolean; error?: string };
+    if (data.ok) {
+      console.log(" ok\n");
+    } else {
+      console.log(` failed — ${data.error ?? "invalid token"}\n`);
+      const proceed = await confirm({ message: "  Continue anyway?", default: false });
+      if (!proceed) process.exit(1);
+    }
+  } catch {
+    console.log(" could not reach Slack API\n");
+    const proceed = await confirm({ message: "  Continue anyway?", default: false });
+    if (!proceed) process.exit(1);
+  }
+
+  return token.trim();
+}
 
 export async function main() {
   console.log("\n── Slack Digest Setup ──\n");
@@ -11,14 +62,12 @@ export async function main() {
   const existing = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, "utf-8") : "";
   const existingToken = existing.match(/SLACK_BOT_TOKEN=(.+)/)?.[1] ?? "";
 
-  const token = await input({
-    message: "Slack Bot Token (xoxb-...):",
-    default: existingToken || undefined,
-  });
-
-  if (!token.startsWith("xoxb-") && !token.startsWith("xoxp-")) {
-    console.error("Error: token should start with xoxb- (bot) or xoxp- (user).");
-    process.exit(1);
+  let token: string;
+  if (existingToken) {
+    const update = await confirm({ message: "Slack token already set. Update it?", default: false });
+    token = update ? await promptToken() : existingToken;
+  } else {
+    token = await promptToken();
   }
 
   writeFileSync(ENV_PATH, `SLACK_BOT_TOKEN=${token}\n`, "utf-8");
