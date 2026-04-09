@@ -45,8 +45,24 @@ mkdir -p "$TMP_DIR/extracted"
 tar -xzf "$TMP_DIR/sld.tar.gz" -C "$TMP_DIR/extracted"
 EXTRACTED=$(ls "$TMP_DIR/extracted" | head -1)
 
+# ── preserve existing credentials and config ─────────────────────────────────
+if [ -f "$INSTALL_DIR/.env" ]; then
+  cp "$INSTALL_DIR/.env" "$TMP_DIR/.env.bak"
+fi
+if [ -f "$INSTALL_DIR/digest.config.json" ]; then
+  cp "$INSTALL_DIR/digest.config.json" "$TMP_DIR/digest.config.json.bak"
+fi
+
 rm -rf "$INSTALL_DIR"
 mv "$TMP_DIR/extracted/$EXTRACTED" "$INSTALL_DIR"
+
+# ── restore credentials and config ───────────────────────────────────────────
+if [ -f "$TMP_DIR/.env.bak" ]; then
+  cp "$TMP_DIR/.env.bak" "$INSTALL_DIR/.env"
+fi
+if [ -f "$TMP_DIR/digest.config.json.bak" ]; then
+  cp "$TMP_DIR/digest.config.json.bak" "$INSTALL_DIR/digest.config.json"
+fi
 
 # ── install production dependencies ─────────────────────────────────────────
 echo "Installing dependencies..."
@@ -71,7 +87,7 @@ echo "sld installed successfully."
 echo "Run 'sld setup' to configure your Slack bot token."
 `;
 
-export default function handler(req: IncomingMessage, res: ServerResponse) {
+export function GET(req: IncomingMessage, res: ServerResponse) {
   res.setHeader("Content-Type", "text/plain");
   res.setHeader("Cache-Control", "no-store");
   res.end(INSTALL_SCRIPT);
