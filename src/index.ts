@@ -116,9 +116,9 @@ program
       : config.channels;
 
     const daysBack = opts.last ? parseLast(opts.last) : config.defaults.daysBack;
-    const { since, until } = getDateRange(opts.since, opts.until, daysBack);
-    const oldest = toUnixTimestamp(since);
-    const latest = toUnixTimestamp(until) + 86400; // include full end day
+    const { since, until, sinceExact, untilExact } = getDateRange(opts.since, opts.until, daysBack);
+    const oldest = toUnixTimestamp(sinceExact);
+    const latest = toUnixTimestamp(untilExact);
 
     process.stderr.write(`\nFetching messages — ${since} to ${until}\n\n`);
 
