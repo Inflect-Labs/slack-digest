@@ -9,6 +9,7 @@ import {
   getDateRange, parseLast, toUnixTimestamp,
 } from "./config.js";
 import { fetchChannelMessages } from "./slack.js";
+import { checkForUpdate, uninstall } from "./update.js";
 
 loadEnv({ path: ENV_PATH });
 
@@ -156,5 +157,19 @@ program
     const output = lines.join("\n");
     console.log(output);
   });
+
+// ─── sld uninstall ───────────────────────────────────────────────────────────
+program
+  .command("uninstall")
+  .description("Remove sld binary and config directory")
+  .action(async () => {
+    await uninstall();
+  });
+
+// ─── update check (skipped for uninstall/setup/channels to avoid noise) ──────
+const command = process.argv[2];
+if (command !== "uninstall" && command !== "setup" && command !== "channels") {
+  await checkForUpdate();
+}
 
 program.parse(process.argv);
