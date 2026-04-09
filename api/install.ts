@@ -69,7 +69,7 @@ fi
 echo ""
 echo "sld installed successfully."
 echo "Run 'sld setup' to configure your Slack bot token."
-\`;
+`;
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
   res.setHeader("Content-Type", "text/plain");
