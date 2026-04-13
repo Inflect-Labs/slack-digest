@@ -79,6 +79,39 @@ channelsCmd
   });
 
 channelsCmd
+  .command("refresh")
+  .description("Re-fetch joined channels from Slack and sync the config")
+  .action(async () => {
+    const { listJoinedChannels } = await import("./slack.js");
+    loadEnv({ path: ENV_PATH });
+    const token = requireEnv("SLACK_BOT_TOKEN");
+    const config = loadConfig();
+
+    console.log("\nFetching channels your bot is a member of...");
+    const fetched = await listJoinedChannels(token);
+
+    const fetchedIds = new Set(fetched.map((c) => c.id));
+    const existingIds = new Set(config.channels.map((c) => c.id));
+
+    const added = fetched.filter((c) => !existingIds.has(c.id));
+    const removed = config.channels.filter((c) => !fetchedIds.has(c.id));
+
+    config.channels = [
+      ...config.channels.filter((c) => fetchedIds.has(c.id)),
+      ...added,
+    ];
+    saveConfig(config);
+
+    if (added.length === 0 && removed.length === 0) {
+      console.log("\nChannels are already up to date.\n");
+    } else {
+      if (added.length > 0) console.log(`\nAdded: ${added.map((c) => `#${c.name}`).join(", ")}`);
+      if (removed.length > 0) console.log(`Removed: ${removed.map((c) => `#${c.name}`).join(", ")}`);
+      console.log(`\nTotal configured channels: ${config.channels.length}\n`);
+    }
+  });
+
+channelsCmd
   .command("remove")
   .description("Remove configured channels")
   .action(async () => {
